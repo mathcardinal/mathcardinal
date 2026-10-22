@@ -1,12 +1,10 @@
 # Ilya Klimenko
 
-*English · [Русский](README.ru.md)*
+Automation / AI engineer, internal tools. I find the bottleneck in a business process and build the tool that removes it: solo, end to end, from problem analysis to production, with the effect measured in hours and money.
 
-Automation engineer, internal tools. I find the bottleneck in a business process and build the tool that removes it: solo, end-to-end, from problem analysis to production, and then I run it.
+Currently at DocsInBox, an electronic document exchange platform for the restaurant industry (18,000 client accounts). Before that, restaurant operations and front-line support: I automate work I used to do by hand.
 
-Currently at DocsInBox, a B2B EDI platform for the restaurant industry (18,000 client accounts). Before that, restaurant operations and support: I automate an industry I know from the inside.
-
-**Stack:** Python · JavaScript (Alpine.js) · SQL (PostgreSQL) · n8n · Supabase · Docker Compose · nginx · Prometheus / Grafana / Loki · Claude Code for routine generation (architecture, review, and tests stay mine)
+**Stack:** Python (FastAPI) · PostgreSQL · Redis · n8n · Supabase · Docker · nginx · Prometheus / Grafana / Loki · OpenClaw agents · Claude Code for routine generation (architecture, review and tests stay mine)
 
 📫 Telegram: [@mathcardinal](https://t.me/mathcardinal) · klimenko.ilya.rb@gmail.com
 
@@ -14,26 +12,32 @@ Currently at DocsInBox, a B2B EDI platform for the restaurant industry (18,000 c
 
 ## Selected work
 
-### Support Training Sandbox (code private, employer IP)
+### AI assistant for support agents, in production (code private, employer IP)
 
-A pixel-accurate replica of the company's production platform running on synthetic data. It is the onboarding and certification environment for a 100-person support team. Built solo in one month, without access to the production codebase (UI reverse-engineered from the running product).
+An OpenClaw agent embedded in the ticket system. For each customer request it gathers context from the customer's ticket history, the knowledge base, Grafana metrics, logs and outage news, then proposes a solution to the agent or asks clarifying questions.
 
-**The problem.** Training cases lived in a shared environment owned by other teams: setting up 4 cases took a month of cross-team approvals (trainers, developers, product managers), and twice the cases were lost to database outages, 200+ hours of restoration work.
+**The problem.** A 3,000-page knowledge base whose built-in search either found nothing or took 5 to 10 minutes; agents escalated questions that already had written answers.
 
-**The architectural call.** Isolate training from production dependencies entirely: a standalone environment with synthetic data, owned by the training team, reproducible from git migrations. A database loss went from a 100-hour incident to a 10-minute restore. The restore path has since been exercised end-to-end on the production host, with a row-by-row comparison of every table rather than a "container came up" check; that comparison is what caught the one thing the first version got wrong.
+**The build.** Hybrid retrieval first: PostgreSQL with pgvector for dense search and built-in full-text search for BM25, fused with RRF, bge-m3 embeddings on CPU, incremental indexing through the knowledge-base API. Evaluation before launch: a gold set of real agent queries, recall@5 and MRR, latency budget, error analysis by category. The generative layer was added only after retrieval quality was measured.
 
-**Results.** New-hire certification scores rose from 7.4 to 8.8/10 · case setup went from 4 cases/month across four teams to 12 cases in 4 hours by one trainer · certification prep time cut in half.
+**Results.** On about 1,500 requests a day, average resolution time dropped from 6 to 3.5 minutes and SLA metrics improved. About 60 hours of support work freed per day, roughly 6M RUB a year in working-time equivalent. Still evolving on support-team feedback.
 
-**Stack.** Alpine.js (interactivity without a build step; speed over framework ceremony) · self-hosted Supabase (Postgres with row-level security on every table) · git-based deployment · one-click reset to a reference dataset for administrators.
+### Support training environment (code private, employer IP)
 
-*The code belongs to my employer and isn't public. Happy to walk through the architecture in as much detail as you like.*
+A replica of the company's production interface on synthetic data: the hands-on part of onboarding and certification for a support team of 100+. Built solo in one month without access to the production codebase (UI rebuilt from the running product).
 
-### Assessment Bot & Dashboard → [github.com/mathcardinal/assessment-bot](https://github.com/mathcardinal/assessment-bot)
+**The problem.** New hires learned from theory. Training cases lived in a shared environment owned by other teams: setting up 4 cases took a month of approvals, and twice the cases were lost to database outages, 200+ hours of restoration work.
 
-Monthly certification for 200 employees, run in parallel by a messenger bot. Replaced a twice-a-year manual process that occupied three trainers for two months per cycle: 6× assessment frequency, ~0.8 FTE freed. n8n + Redis + self-hosted Supabase, with a FastAPI dashboard. The README includes the operations side: what broke, what was lost, and which mechanism grew out of it.
+**The call.** Isolate training from production dependencies: a standalone environment with synthetic data, owned by the training team, reproducible from git migrations.
 
-### Infrastructure (separate private repository)
+**Results.** New-hire certification scores rose from 7.4 to 8.8 out of 10. Case setup time dropped from a month to 4 hours by one trainer. Certification prep time halved.
 
-Both projects run on one server I administer: 13 containers behind a single nginx, nothing else exposed. Everything that configures the machine is in git: compose files, systemd units, nginx and fail2ban configs, backup and snapshot scripts, alert rules with runbooks. An hourly check compares the live server against the repository and reports drift, so a file edited by hand on the box cannot quietly become the only copy. Changes to anything stateful follow one protocol (snapshot, change, verify an invariant), and a hook refuses the command if the snapshot is missing.
+**Stack.** Alpine.js (interactivity without a build step), self-hosted Supabase, git-based deployment.
 
-Most of this was built after things broke, not before. The incident log in that repository says which things.
+### Assessment bot and dashboard → [github.com/mathcardinal/assessment-bot](https://github.com/mathcardinal/assessment-bot)
+
+Monthly certification for 200 employees, run in parallel by a messenger bot with a role-based FastAPI dashboard. Replaced a twice-a-year manual process that occupied three trainers for two months per cycle. About 860K RUB a year saved (10 person-months of manual work). n8n with node logic extracted into unit-tested modules, PostgreSQL, Redis, CI deploy.
+
+### Production server behind all three
+
+Ubuntu, 13 Docker containers, nginx as the only entry point. Monitoring and logging built from scratch: Prometheus, Grafana, Loki, 21 alert rules with runbooks, centralized logs with secret scrubbing. Security built from scratch: service isolation, key-only SSH, fail2ban, host audit with secret rotation. Backups with restore verification. Deploy pipeline with a forced-command SSH key, health check and rollback.
