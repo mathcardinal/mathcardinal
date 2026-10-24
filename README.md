@@ -1,43 +1,41 @@
-# Ilya Klimenko
+# Илья Клименко
 
-Automation / AI engineer, internal tools. I find the bottleneck in a business process and build the tool that removes it: solo, end to end, from problem analysis to production, with the effect measured in hours and money.
+Инженер по автоматизации и ИИ, внутренние инструменты. Нахожу узкое место в бизнес-процессе и строю инструмент, который его убирает. В одиночку, от разбора проблемы до прода, с эффектом, посчитанным в часах и деньгах.
 
-Currently at DocsInBox, an electronic document exchange platform for the restaurant industry (18,000 client accounts). Before that, restaurant operations and front-line support: I automate work I used to do by hand.
+Сейчас в DocsInBox, платформе электронного документооборота для ресторанной отрасли (18 000 клиентских аккаунтов). До этого работал в ресторанах и на первой линии поддержки, так что автоматизирую ту работу, которую раньше делал руками.
 
-**Stack:** Python (FastAPI) · PostgreSQL · Redis · n8n · Supabase · Docker · nginx · Prometheus / Grafana / Loki · OpenClaw agents · Claude Code for routine generation (architecture, review and tests stay mine)
+**Стек:** Python (FastAPI) · PostgreSQL / pgvector · Redis · n8n · Supabase · Docker · nginx · Prometheus / Grafana / Loki · агенты на OpenClaw · MCP-серверы · Claude Code для рутинной генерации (архитектура, ревью и тесты остаются за мной)
 
 📫 Telegram: [@mathcardinal](https://t.me/mathcardinal) · klimenko.ilya.rb@gmail.com
 
 ---
 
-## Selected work
+## Избранные проекты
 
-### AI assistant for support agents, in production (code private, employer IP)
+### ИИ-помощник для инженеров поддержки: от поиска по базе знаний до агента на чтение (код закрыт, собственность работодателя)
 
-An OpenClaw agent embedded in the ticket system. For each customer request it gathers context from the customer's ticket history, the knowledge base, Grafana metrics, logs and outage news, then proposes a solution to the agent or asks clarifying questions.
+Начинался как поиск по базе знаний на 3 000 страниц. Встроенный поиск в ней либо ничего не находил, либо отнимал 5–10 минут, поэтому сотрудники эскалировали вопросы, ответы на которые уже были написаны. Со временем вырос в агента в корпоративном мессенджере для инженеров первой линии поддержки направления юридически значимого документооборота. Здесь описано то, что согласовано с безопасностью. Остальное под NDA.
 
-**The problem.** A 3,000-page knowledge base whose built-in search either found nothing or took 5 to 10 minutes; agents escalated questions that already had written answers.
+**Первая стадия, поиск.** Гибридный поиск в PostgreSQL. pgvector для плотного поиска, встроенный полнотекстовый для BM25, слияние через RRF, эмбеддинги bge-m3 на CPU, инкрементальная индексация через API базы знаний. До запуска замерил качество на золотом наборе реальных запросов сотрудников (recall@5, MRR, бюджет задержки, разбор ошибок по категориям). Генеративный слой подключил только после этого замера. На примерно 1 500 запросах в день среднее время решения снизилось с 6 до 3,5 минут, метрики SLA улучшились. Это около 60 часов работы поддержки в день, порядка 6 млн ₽ в год в эквиваленте рабочего времени.
 
-**The build.** Hybrid retrieval first: PostgreSQL with pgvector for dense search and built-in full-text search for BM25, fused with RRF, bge-m3 embeddings on CPU, incremental indexing through the knowledge-base API. Evaluation before launch: a gold set of real agent queries, recall@5 and MRR, latency budget, error analysis by category. The generative layer was added only after retrieval quality was measured.
+**Вторая стадия, агент.** Гейтвей OpenClaw на loopback. Адаптер к корпоративному мессенджеру написал сам, в OpenClaw его нет. Внутри агентский цикл с tool calling без фиксированного графа, а не пайплайн, как в n8n. Самописный MCP-сервер работает единым фасадом к Jira, GitLab, Grafana, ClickHouse, Graylog и Allure TestOps. Учётные данные держит у себя, ответы приводит к безопасному виду до передачи в модель, лежит в git под ревью и тестами. Копий корпоративных данных нет. Источник истины живые системы, а два служебных индекса (код и пользовательская документация) только подсказывают, куда смотреть. Порядок выбора источника прописан в инструкции, модели он не оставлен. Эмбеддинги считаются локально. Режим только на чтение выбран намеренно. Результат работы агента диагноз и путь эскалации, а не действие. Архитектура задокументирована отдельно, с моделью угроз, границами доверия и описанием того, что именно обеспечивает режим чтения.
 
-**Results.** On about 1,500 requests a day, average resolution time dropped from 6 to 3.5 minutes and SLA metrics improved. About 60 hours of support work freed per day, roughly 6M RUB a year in working-time equivalent. Still evolving on support-team feedback.
+### Тренировочная среда для поддержки (код закрыт, собственность работодателя)
 
-### Support training environment (code private, employer IP)
+Копия продового интерфейса компании на синтетических данных. Это практическая часть онбординга и аттестации для команды поддержки на 100+ человек. Собрал один за месяц без доступа к коду продукта, интерфейс воспроизводил по работающей системе.
 
-A replica of the company's production interface on synthetic data: the hands-on part of onboarding and certification for a support team of 100+. Built solo in one month without access to the production codebase (UI rebuilt from the running product).
+**Проблема.** Новички учились по теории. Учебные кейсы жили в общей среде, которой владели другие команды. Настройка 4 кейсов занимала месяц согласований, и дважды кейсы терялись при падениях базы, 200+ часов на восстановление.
 
-**The problem.** New hires learned from theory. Training cases lived in a shared environment owned by other teams: setting up 4 cases took a month of approvals, and twice the cases were lost to database outages, 200+ hours of restoration work.
+**Решение.** Отвязать обучение от продовых зависимостей. Отдельная среда на синтетических данных, которой владеет отдел обучения и которая воспроизводится из git-миграций.
 
-**The call.** Isolate training from production dependencies: a standalone environment with synthetic data, owned by the training team, reproducible from git migrations.
+**Результат.** Баллы новичков на аттестации выросли с 7,4 до 8,8 из 10. Настройка кейсов сократилась с месяца до 4 часов силами одного тренера. Подготовка к аттестации занимает вдвое меньше времени.
 
-**Results.** New-hire certification scores rose from 7.4 to 8.8 out of 10. Case setup time dropped from a month to 4 hours by one trainer. Certification prep time halved.
+**Стек.** Alpine.js (интерактивность без сборки), self-hosted Supabase, деплой из git.
 
-**Stack.** Alpine.js (interactivity without a build step), self-hosted Supabase, git-based deployment.
+### Бот аттестации и дашборд → [github.com/mathcardinal/assessment-bot](https://github.com/mathcardinal/assessment-bot)
 
-### Assessment bot and dashboard → [github.com/mathcardinal/assessment-bot](https://github.com/mathcardinal/assessment-bot)
+Ежемесячная аттестация 200 сотрудников. Бот в мессенджере проводит её параллельно для всех команд, дашборд на FastAPI с ролевым доступом показывает результаты тренерам и руководителям. Заменил ручной процесс, который шёл два раза в год и занимал трёх тренеров на два месяца за цикл. Экономия около 860 тыс. ₽ в год (10 человеко-месяцев ручной работы). n8n с логикой нод, вынесенной в модули под юнит-тестами, PostgreSQL, Redis, деплой через CI.
 
-Monthly certification for 200 employees, run in parallel by a messenger bot with a role-based FastAPI dashboard. Replaced a twice-a-year manual process that occupied three trainers for two months per cycle. About 860K RUB a year saved (10 person-months of manual work). n8n with node logic extracted into unit-tested modules, PostgreSQL, Redis, CI deploy.
+### Продовый сервер под всеми тремя
 
-### Production server behind all three
-
-Ubuntu, 13 Docker containers, nginx as the only entry point. Monitoring and logging built from scratch: Prometheus, Grafana, Loki, 21 alert rules with runbooks, centralized logs with secret scrubbing. Security built from scratch: service isolation, key-only SSH, fail2ban, host audit with secret rotation. Backups with restore verification. Deploy pipeline with a forced-command SSH key, health check and rollback.
+Ubuntu, 13 Docker-контейнеров, nginx как единственная точка входа. Мониторинг и логирование с нуля. Prometheus, Grafana, Loki, 21 правило алертов с ранбуками, централизованные логи с вычисткой секретов. Безопасность с нуля. Изоляция сервисов, SSH только по ключам, fail2ban, аудит хоста с ротацией секретов. Бэкапы с проверкой восстановления. Пайплайн деплоя с SSH-ключом под forced command, health check и откатом.
